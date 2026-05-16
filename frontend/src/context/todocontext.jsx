@@ -8,6 +8,8 @@ export const todoreducer=(state,action)=>{
             return{todos:[action.payload,...state.todos]};
         case "DELETE_TODO":
             return{todos:state.todos.filter((t)=>t._id!==action.payload._id)};
+        case "UPDATE_TODO":
+            return{todos:state.todos.map((t)=>t._id===action.payload._id ? action.payload : t)};
         default:
             return state;
     }

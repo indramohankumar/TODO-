@@ -1,75 +1,100 @@
-import React,{useState} from "react";
+import React, { useState } from "react";
 import { useTodocontext } from "./usetodocontext";
 import { useAuthcontext } from "../hooks/useauthcontext";
+import axios from "axios";
+
 function TodoForm() {
-    const {dispatch}=useTodocontext();
-    const {user}=useAuthcontext();
-    const [title,setTitle]=useState("");
-    const [description,setDescription]=useState("");
-    const [priority,setPriority]=useState("medium");
-    const [error,setError]=useState(null);
-    const handleSubmit=async(e)=>{
+    const { dispatch } = useTodocontext();
+    const { user } = useAuthcontext();
+    
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [priority, setPriority] = useState("medium");
+    const [error, setError] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if(!user){
+        
+        if (!user) {
             setError("You must be logged in");
             return;
         }
-        const todo={title,description,priority};
-        try{
-            const apiurl=import.meta.env.VITE_API_URL || "http://localhost:3000";
-            const response=await fetch(`${apiurl}/api/todos`,{
-                method:"POST",
-                headers:{
-                    "Content-Type":"application/json",
-                    "Authorization":`Bearer ${user.token}`
-                },
-                body:JSON.stringify(todo)
-            });
-            const json=await response.json();
-            if(!response.ok){
-                setError(json.error);
-            }
-            if(response.ok){
-                setTitle("");
-                setDescription("");
-                setPriority("");
-                setError(null);
-                dispatch({type:"ADD_TODO",payload:json});
-            }
-        }catch(error){
-            setError("An error occurred while creating the todo");
+
+        if (!title.trim() || !description.trim()) {
+            setError("Title and description are required.");
+            return;
         }
-    }
-    return(
-        <form className="max-w-md mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col gap-4 mt-8" onSubmit={handleSubmit}>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Create a New Todo</h3>
+
+        setIsLoading(true);
+        setError(null);
+
+        const todo = { title, description, priority };
+
+        try {
+            const apiurl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            const response = await axios.post(`${apiurl}/api/todos`, todo, {
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${user.token}`
+                }
+            });
+
+            setTitle("");
+            setDescription("");
+            setPriority("medium");
+            setError(null);
             
-            <div className="flex flex-col gap-1">
-                <label className="text-sm font-semibold text-gray-600">Title:</label>
-                <input 
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-shadow"
-                    type="text" 
-                    onChange={(e)=>setTitle(e.target.value)} 
-                    value={title} 
+            dispatch({ type: "ADD_TODO", payload: response.data });
+        } catch (err) {
+            setError(err.response?.data?.error || "An error occurred while creating the todo");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <form 
+            className="bg-white p-6 rounded border border-gray-200 shadow-sm flex flex-col gap-4"
+            onSubmit={handleSubmit}
+        >
+            <h3 className="text-xl font-bold text-gray-800 border-b pb-2">
+                Create a New Task
+            </h3>
+
+            <div className="flex flex-col">
+                <label className="text-sm font-semibold text-gray-600 mb-1">
+                    Title
+                </label>
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="border border-gray-300 p-2 rounded focus:outline-none focus:border-blue-500"
+                    placeholder="Task title"
                 />
             </div>
 
-            <div className="flex flex-col gap-1">
-                <label className="text-sm font-semibold text-gray-600">Description:</label>
-                <input 
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-shadow"
-                    type="text" 
-                    onChange={(e)=>setDescription(e.target.value)} 
-                    value={description} 
+            <div className="flex flex-col">
+                <label className="text-sm font-semibold text-gray-600 mb-1">
+                    Description
+                </label>
+                <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="border border-gray-300 p-2 rounded focus:outline-none focus:border-blue-500 min-h-[80px]"
+                    placeholder="Task details"
                 />
             </div>
 
-            <div className="flex flex-col gap-1">
-                <label className="text-sm font-semibold text-gray-600">Priority:</label>
-                <select 
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-shadow bg-white"
-                    onChange={(e)=>setPriority(e.target.value)} 
+            <div className="flex flex-col">
+                <label className="text-sm font-semibold text-gray-600 mb-1">
+                    Priority
+                </label>
+                <select
                     value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="border border-gray-300 p-2 rounded bg-white focus:outline-none focus:border-blue-500"
                 >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -77,15 +102,21 @@ function TodoForm() {
                 </select>
             </div>
 
-            <button 
-                className="mt-2 bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-md active:scale-95"
+            <button
                 type="submit"
+                disabled={isLoading}
+                className="bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700 transition-colors mt-2 disabled:bg-blue-300"
             >
-                Add Todo
+                {isLoading ? "Adding Task..." : "Add Task"}
             </button>
 
-            {error && <div className="p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg text-sm text-center mt-2">{error}</div>}
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded mt-2">
+                    {error}
+                </div>
+            )}
         </form>
-    )
+    );
 }
+
 export default TodoForm;

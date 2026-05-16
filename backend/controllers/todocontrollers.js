@@ -4,10 +4,19 @@ const mongoose = require('mongoose');
 //get all todos
 exports.gettodos = async(req, res) => {
     const user_id = req.user._id;
-    try{
-        const todos = await Todo.find({user_id}).sort({createdAt: -1});
+    const { search } = req.query;
+    
+    try {
+        let query = { user_id };
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+        const todos = await Todo.find(query).sort({createdAt: -1});
         res.status(200).json(todos);
-    } catch(error){
+    } catch(error) {
         res.status(400).json({error: error.message});
     }
 }
@@ -33,32 +42,22 @@ exports.gettodo = async(req, res) => {
 //create a new todo
 exports.createtodo = async(req, res) => {
     const {title, description, priority} = req.body;
-    const emptyfields = [];
     
-    if(!title){
-        emptyfields.push('title');
-    }
-    if(!description){
-        emptyfields.push('description');
-    }
-    if(!priority){
-        emptyfields.push('priority');
+    if(!title || !description || !priority){
+        return res.status(400).json({ error: "Please fill in all the fields" });
     }
     
-    if(emptyfields.length > 0){
-        return res.status(400).json({error:'Please fill in all fields', emptyfields});
-    }
-    
-    try{
+    try {
         const user_id = req.user._id;
-        const todo = await Todo.create({title, description, priority, user_id});
+        const todo = await Todo.create({
+            title,
+            description,
+            priority,
+            user_id
+        });
         res.status(200).json(todo);
-    } catch(error){
-        if (error.name === 'ValidationError') {
-            const errors = Object.values(error.errors).map(err => err.message);
-            return res.status(400).json({ error: 'Validation error', details: errors });
-        }
-        return res.status(400).json({ error: 'validation failed', fieldErrors: error.message });
+    } catch(error) {
+        res.status(400).json({ error: "Failed to create todo. Please check your inputs." });
     }
 }
 
@@ -86,17 +85,25 @@ exports.updatetodo = async(req, res) => {
     if(!mongoose.Types.ObjectId.isValid(id)){
         return res.status(404).json({error:'No such todo'});
     }
-    try{
+
+    const allowedUpdates = ['title', 'description', 'priority', 'completed'];
+    const updates = {};
+    
+    for (let key in req.body) {
+        if (allowedUpdates.includes(key)) {
+            updates[key] = req.body[key];
+        }
+    }
+
+    try {
         const user_id = req.user._id;
-        const updatetodo = await Todo.findOneAndUpdate({_id: id, user_id}, {
-            ...req.body
-        }, {new: true});
+        const updatetodo = await Todo.findOneAndUpdate({_id: id, user_id}, updates, {new: true});
         
         if(!updatetodo){
             return res.status(404).json({error:'No such todo'});
         }
         res.status(200).json(updatetodo);
-    } catch(error){
+    } catch(error) {
         res.status(400).json({error: error.message});
     }
 }

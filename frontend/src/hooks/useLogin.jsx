@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useAuthcontext } from './useauthcontext';
+import axios from 'axios';
 
 export const useLogin = () => {
     const [error, setError] = useState(null);
-    const [isLoading, setIsLoading] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
     const { dispatch } = useAuthcontext();
 
     const login = async (email, password) => {
@@ -11,30 +12,19 @@ export const useLogin = () => {
         setError(null);
 
         try {
-            const apiurl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-            const response = await fetch(`${apiurl}/api/user/login`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ email, password })
-            });
-            const json = await response.json();
+            const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            const res = await axios.post(`${backendUrl}/api/user/login`, { email, password });
+            
+            // save user to local storage
+            localStorage.setItem('user', JSON.stringify(res.data));
 
-            if (!response.ok) {
-                setIsLoading(false);
-                setError(json.error || 'Failed to login');
-            }
-            if (response.ok) {
-                // save the user to local storage
-                localStorage.setItem('user', JSON.stringify(json));
+            // update auth context
+            dispatch({ type: 'LOGIN', payload: res.data });
 
-                // update the auth context
-                dispatch({type: 'LOGIN', payload: json});
-
-                setIsLoading(false);
-            }
         } catch (err) {
+            setError(err.response?.data?.error || "An error occurred during login.");
+        } finally {
             setIsLoading(false);
-            setError("Cannot connect to server. Please ensure the backend is running.");
         }
     };
 
